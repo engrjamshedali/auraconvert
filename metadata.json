@@ -1,0 +1,6 @@
+{
+  "name": "HTML/CSS to PDF Converter",
+  "description": "Convert HTML and CSS into high-quality PDF documents online. Customize page sizes, orientation, and margins, preview your document, and download your PDF instantly.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

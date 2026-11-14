@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  :root {
+    font-family: var(--font-sans);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  * {
+    @apply border-neutral-200/80 dark:border-white/10;
+  }
+
+  body {
+    @apply bg-[#F5F5F7] text-[#1D1D1F] dark:bg-[#0D0D0F] dark:text-[#F5F5F7] selection:bg-[#0066CC]/20 dark:selection:bg-[#2997FF]/30;
+    transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1), color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/* Apple-style immediate pointer-down response */
+.apple-press {
+  transition: transform 100ms cubic-bezier(0.16, 1, 0.3, 1), opacity 100ms ease-out, background-color 150ms ease;
+}
+.apple-press:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Frosted Translucent Material */
+.apple-glass {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.dark .apple-glass {
+  background: rgba(22, 22, 25, 0.76);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Accessibility: Reduced Motion, Reduced Transparency, High Contrast */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 120ms !important;
+    scroll-behavior: auto !important;
+  }
+  .apple-press:active:not(:disabled) {
+    transform: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .apple-glass,
+  .dark .apple-glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .apple-glass {
+    background: #ffffff !important;
+  }
+  .dark .apple-glass {
+    background: #161619 !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  * {
+    border-color: currentColor !important;
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

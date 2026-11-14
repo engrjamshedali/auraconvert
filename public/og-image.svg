@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0D0D0F"/>
+  <rect x="60" y="60" width="1080" height="510" rx="28" fill="#141418" stroke="#27272A" stroke-width="2"/>
+  <rect x="120" y="130" width="72" height="72" rx="18" fill="#0066CC"/>
+  <path d="M144 148H164L176 160V184C176 185.105 175.105 186 174 186H144C142.895 186 142 185.105 142 184V150C142 148.895 142.895 148 144 148Z" fill="white"/>
+  <text x="216" y="178" fill="#FFFFFF" font-family="system-ui, -apple-system, sans-serif" font-size="40" font-weight="700">PageForge PDF</text>
+  <text x="120" y="290" fill="#FFFFFF" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="700" letter-spacing="-1">Free HTML &amp; CSS to PDF Converter</text>
+  <text x="120" y="360" fill="#A1A1AA" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="400">Vector-accurate rendering · A4, A3, A5, Letter, Legal &amp; Custom sizes · Live preview</text>
+  <rect x="120" y="430" width="240" height="56" rx="12" fill="#0066CC"/>
+  <text x="155" y="466" fill="#FFFFFF" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="600">Convert Online</text>
+</svg>

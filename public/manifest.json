@@ -1,0 +1,17 @@
+{
+  "name": "PageForge PDF – Free HTML to PDF Converter Online",
+  "short_name": "PageForge PDF",
+  "description": "Convert HTML and CSS into high-quality PDF documents online. Customize page sizes, orientation, and margins, preview your document, and download your PDF instantly.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F5F7",
+  "theme_color": "#0066CC",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
