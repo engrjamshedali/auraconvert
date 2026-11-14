@@ -1,7 +1,7 @@
 {
-  "name": "PageForge PDF – Free HTML to PDF Converter Online",
-  "short_name": "PageForge PDF",
-  "description": "Convert HTML and CSS into high-quality PDF documents online. Customize page sizes, orientation, and margins, preview your document, and download your PDF instantly.",
+  "name": "AuraConvert – Free HTML to PDF Converter Online",
+  "short_name": "AuraConvert",
+  "description": "Convert HTML and CSS into professional PDF documents online. Customize page sizes, configure layouts, preview documents, and download PDFs easily.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#F5F5F7",

@@ -115,8 +115,8 @@ const DEFAULT_HTML = `<!DOCTYPE html>
         <h1>Cloud Infrastructure &amp; Print Rendering</h1>
       </div>
       <div class="meta">
-        <div>Ref: PF-2026-04</div>
-        <div>Date: November 13, 2026</div>
+        <div>Ref: AC-2026-04</div>
+        <div>Date: November 14, 2026</div>
       </div>
     </header>
 
@@ -368,7 +368,7 @@ function buildPreviewDocument(
     }
   `;
 
-  const combinedStyles = `<style id="pageforge-preview-base">${basePreviewCss}</style>\n<style id="pageforge-preview-user-css">\n${rawCss || ""}\n</style>`;
+  const combinedStyles = `<style id="auraconvert-preview-base">${basePreviewCss}</style>\n<style id="auraconvert-preview-user-css">\n${rawCss || ""}\n</style>`;
 
   if (/<html[\s>]/i.test(sanitizedHtml)) {
     if (/<\/head>/i.test(sanitizedHtml)) {
@@ -392,6 +392,123 @@ ${sanitizedHtml}
 </html>`;
 }
 
+/**
+ * Renders HTML & CSS to PDF directly inside the browser using html2pdf.js.
+ * Provides high-reliability fallback if server endpoint is unreachable or lacks Chromium.
+ */
+async function generateClientPdf(
+  rawHtml: string,
+  rawCss: string,
+  settings: PageSettings,
+  marginsMm: { top: number; right: number; bottom: number; left: number },
+  geometry: { widthMm: number; heightMm: number }
+): Promise<{ blob: Blob; pageCount: number }> {
+  // Dynamically load html2pdf.js to keep initial page load fast
+  // @ts-ignore
+  const rawMod = (await import("html2pdf.js")) as any;
+  const html2pdf =
+    (typeof rawMod === "function" ? rawMod : null) ||
+    (typeof rawMod.default === "function" ? rawMod.default : null) ||
+    (typeof rawMod.default?.default === "function" ? rawMod.default.default : null) ||
+    (typeof rawMod.h?.default === "function" ? rawMod.h.default : null) ||
+    (typeof rawMod.h === "function" ? rawMod.h : null) ||
+    rawMod;
+
+  const sanitizedHtml = rawHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+  const basePrintCss = `
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #111827;
+    }
+    thead {
+      display: table-header-group;
+    }
+    tfoot {
+      display: table-footer-group;
+    }
+    tr, img, pre, blockquote {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+  `;
+
+  const container = document.createElement("div");
+  container.id = "auraconvert-client-render-stage";
+  container.style.position = "fixed";
+  container.style.left = "-99999px";
+  container.style.top = "0";
+  container.style.width = `${geometry.widthMm}mm`;
+  container.style.background = "#ffffff";
+  container.style.color = "#111827";
+  container.style.zIndex = "-9999";
+
+  const styleTag = `<style id="auraconvert-client-base">${basePrintCss}</style>\n<style id="auraconvert-client-user">${rawCss || ""}</style>`;
+  container.innerHTML = `${styleTag}\n<div class="auraconvert-content-wrapper">${sanitizedHtml}</div>`;
+  document.body.appendChild(container);
+
+  try {
+    const isCustom = settings.pageSize === "Custom";
+    const jsPdfFormat = isCustom
+      ? [geometry.widthMm, geometry.heightMm]
+      : settings.pageSize.toLowerCase();
+
+    const opt = {
+      margin: [
+        marginsMm.top,
+        marginsMm.left,
+        marginsMm.bottom,
+        marginsMm.right
+      ],
+      filename: "document.pdf",
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        letterRendering: true,
+        onclone: (clonedDoc: Document) => {
+          // Remove all stylesheets and link elements from clonedDoc that might contain Tailwind v4 modern oklab/oklch rules
+          const stylesheets = clonedDoc.querySelectorAll("link[rel='stylesheet'], style");
+          stylesheets.forEach((el) => {
+            if (el.id !== "auraconvert-client-base" && el.id !== "auraconvert-client-user") {
+              el.remove();
+            }
+          });
+        }
+      },
+      jsPDF: {
+        unit: "mm",
+        format: jsPdfFormat,
+        orientation: settings.orientation
+      },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] }
+    };
+
+    const worker = (html2pdf as any)().set(opt).from(container);
+    const pdfDoc = await worker.toPdf().get("pdf");
+    const count = pdfDoc?.internal?.getNumberOfPages ? pdfDoc.internal.getNumberOfPages() : 1;
+    const blob: Blob = await worker.output("blob");
+
+    return { blob, pageCount: count || 1 };
+  } finally {
+    if (document.body.contains(container)) {
+      document.body.removeChild(container);
+    }
+  }
+}
+
 export default function App() {
   const [html, setHtml] = useState<string>(DEFAULT_HTML);
   const [css, setCss] = useState<string>(DEFAULT_CSS);
@@ -406,6 +523,23 @@ export default function App() {
   const [downloadFilename, setDownloadFilename] = useState<string>(getDynamicDefaultFilename);
   const [isDownloadingLock, setIsDownloadingLock] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [serverEngineAvailable, setServerEngineAvailable] = useState<boolean>(false);
+
+  // Probe backend capabilities once on mount
+  useEffect(() => {
+    fetch("/api/health")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.renderer === "server-playwright") {
+          setServerEngineAvailable(true);
+        } else {
+          setServerEngineAvailable(false);
+        }
+      })
+      .catch(() => {
+        setServerEngineAvailable(false);
+      });
+  }, []);
 
   // Live Preview Sizing & Multi-page Measurement
   const [previewStageWidthPx, setPreviewStageWidthPx] = useState<number>(800);
@@ -663,7 +797,7 @@ export default function App() {
     return null;
   }, [html, css, settingsValidationError]);
 
-  // Convert HTML + CSS to PDF via Backend Playwright Engine
+  // Convert HTML + CSS to PDF: Dual-Engine Strategy (High-fidelity Server Vector PDF + Instant Client-Side Fallback)
   const handleConvertToPdf = useCallback(async () => {
     if (isConverting) return;
 
@@ -689,82 +823,102 @@ export default function App() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    try {
-      const response = await fetch("/api/convert-pdf", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          html,
-          css,
-          settings: {
-            pageSize: pageSettings.pageSize,
-            orientation: pageSettings.orientation,
-            customWidth: Number(pageSettings.customWidth),
-            customHeight: Number(pageSettings.customHeight),
-            customUnit: pageSettings.customUnit,
-            margins: {
-              top: `${effectiveMarginsMm.top}mm`,
-              right: `${effectiveMarginsMm.right}mm`,
-              bottom: `${effectiveMarginsMm.bottom}mm`,
-              left: `${effectiveMarginsMm.left}mm`
+    let generatedBlob: Blob | null = null;
+    let finalPageCount = previewPagination.pagesCount;
+
+    // 1. Attempt High-Fidelity Server-Side Vector PDF Engine if available
+    if (serverEngineAvailable) {
+      try {
+        const response = await fetch("/api/convert-pdf", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            html,
+            css,
+            settings: {
+              pageSize: pageSettings.pageSize,
+              orientation: pageSettings.orientation,
+              customWidth: Number(pageSettings.customWidth),
+              customHeight: Number(pageSettings.customHeight),
+              customUnit: pageSettings.customUnit,
+              margins: {
+                top: `${effectiveMarginsMm.top}mm`,
+                right: `${effectiveMarginsMm.right}mm`,
+                bottom: `${effectiveMarginsMm.bottom}mm`,
+                left: `${effectiveMarginsMm.left}mm`
+              }
+            }
+          }),
+          signal: controller.signal
+        });
+
+        if (response.ok) {
+          const headerPageCount = parseInt(response.headers.get("X-PDF-Page-Count") || "", 10);
+          const arrayBuffer = await response.arrayBuffer();
+          if (arrayBuffer && arrayBuffer.byteLength >= 100) {
+            generatedBlob = new Blob([arrayBuffer], { type: "application/pdf" });
+            if (Number.isFinite(headerPageCount) && headerPageCount > 0) {
+              finalPageCount = headerPageCount;
             }
           }
-        }),
-        signal: controller.signal
-      });
-
-      if (!response.ok) {
-        let serverError = `Conversion failed (HTTP ${response.status}).`;
-        try {
-          const errJson = await response.json();
-          if (errJson && typeof errJson.error === "string") {
-            serverError = errJson.error;
-          }
-        } catch {
-          // Ignore JSON parse error
         }
-        throw new Error(serverError);
+      } catch (serverErr: unknown) {
+        if (serverErr instanceof DOMException && serverErr.name === "AbortError") {
+          return;
+        }
       }
+    }
 
-      const headerPageCount = parseInt(response.headers.get("X-PDF-Page-Count") || "", 10);
-      const arrayBuffer = await response.arrayBuffer();
-      if (!arrayBuffer || arrayBuffer.byteLength < 100) {
-        throw new Error("Received an empty or invalid PDF file from the rendering engine.");
-      }
-
-      const blob = new Blob([arrayBuffer], { type: "application/pdf" });
-      const newBlobUrl = URL.createObjectURL(blob);
-      blobUrlRef.current = newBlobUrl;
-
-      const defaultName = getDynamicDefaultFilename();
-      setDownloadFilename(defaultName);
-
-      setReadyPdf({
-        blobUrl: newBlobUrl,
-        filename: defaultName,
-        pageSizeLabel: pageGeometry.sizeSummaryLabel,
-        orientationLabel: pageSettings.orientation === "landscape" ? "Landscape" : "Portrait",
-        pageCount:
-          Number.isFinite(headerPageCount) && headerPageCount > 0
-            ? headerPageCount
-            : previewPagination.pagesCount,
-        byteSize: arrayBuffer.byteLength
-      });
-      setIsReadyModalOpen(true);
-    } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === "AbortError") {
+    // 2. High-Reliability Client-Side Fallback Engine (runs if server is unavailable or throws)
+    if (!generatedBlob) {
+      try {
+        const clientResult = await generateClientPdf(
+          html,
+          css,
+          pageSettings,
+          effectiveMarginsMm,
+          pageGeometry
+        );
+        generatedBlob = clientResult.blob;
+        finalPageCount = clientResult.pageCount;
+      } catch (clientErr: unknown) {
+        if (clientErr instanceof DOMException && clientErr.name === "AbortError") {
+          return;
+        }
+        const message =
+          clientErr instanceof Error
+            ? clientErr.message
+            : "Unable to render PDF from the provided HTML and CSS. Please verify syntax and external assets.";
+        setErrorMsg(message);
+        setIsConverting(false);
         return;
       }
-      const message =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while generating the PDF.";
-      setErrorMsg(message);
-    } finally {
-      setIsConverting(false);
     }
+
+    if (!generatedBlob || generatedBlob.size < 100) {
+      setErrorMsg("Generated PDF was empty. Please check your HTML structure.");
+      setIsConverting(false);
+      return;
+    }
+
+    const newBlobUrl = URL.createObjectURL(generatedBlob);
+    blobUrlRef.current = newBlobUrl;
+
+    const defaultName = getDynamicDefaultFilename();
+    setDownloadFilename(defaultName);
+
+    setReadyPdf({
+      blobUrl: newBlobUrl,
+      filename: defaultName,
+      pageSizeLabel: pageGeometry.sizeSummaryLabel,
+      orientationLabel: pageSettings.orientation === "landscape" ? "Landscape" : "Portrait",
+      pageCount: finalPageCount,
+      byteSize: generatedBlob.size
+    });
+    setIsReadyModalOpen(true);
+    setIsConverting(false);
   }, [
     html,
     css,
@@ -772,7 +926,7 @@ export default function App() {
     settingsValidationError,
     pageSettings,
     effectiveMarginsMm,
-    pageGeometry.sizeSummaryLabel,
+    pageGeometry,
     previewPagination.pagesCount,
     revokeCurrentBlobUrl
   ]);
@@ -1612,8 +1766,18 @@ export default function App() {
 
       {/* Minimal Semantic Footer */}
       <footer className="h-8 px-5 bg-white dark:bg-[#141416] border-t border-neutral-200/80 dark:border-white/10 flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 shrink-0">
-        <span>&copy; {new Date().getFullYear()} AuraConvert · AuraNix Technologies</span>
-        <span>Convert HTML to PDF. Fast, Beautiful, Effortless.</span>
+        <span>
+          &copy; {new Date().getFullYear()} AuraConvert ·{" "}
+          <a
+            href="https://auranix.tech"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#0066CC] dark:hover:text-[#2997FF] underline underline-offset-2 transition-colors"
+          >
+            AuraNix Technologies
+          </a>
+        </span>
+        <span className="hidden sm:inline">Convert HTML to PDF. Fast, Beautiful, Effortless.</span>
       </footer>
 
       {/* Professional PDF Ready Popup Modal */}

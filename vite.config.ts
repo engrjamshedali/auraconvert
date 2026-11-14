@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv, Plugin} from 'vite';
+import { defineConfig, Plugin } from 'vite';
 
 /**
  * Prevents @vite/client from opening a failing HMR WebSocket in environments
@@ -23,22 +23,30 @@ function disableViteClientWebSocket(): Plugin {
   };
 }
 
-export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
-  return {
-    plugins: [react(), tailwindcss(), disableViteClientWebSocket()],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+export default defineConfig({
+  plugins: [react(), tailwindcss(), disableViteClientWebSocket()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.'),
     },
-    resolve: {
-      alias: {
-        '@': path.resolve(__dirname, '.'),
+  },
+  server: {
+    hmr: false,
+    ws: false,
+    watch: null,
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    chunkSizeWarningLimit: 1200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-editor': ['@monaco-editor/react'],
+          'vendor-ui': ['lucide-react', 'motion', 'clsx', 'tailwind-merge'],
+        },
       },
     },
-    server: {
-      hmr: false,
-      ws: false,
-      watch: null,
-    },
-  };
+  },
 });

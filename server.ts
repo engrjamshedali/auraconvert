@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import fs from "fs";
 import path from "path";
 import { chromium, Browser } from "playwright-core";
@@ -24,6 +24,10 @@ function resolveChromiumExecutable(): string | undefined {
     }
   }
   return undefined;
+}
+
+function isChromiumAvailable(): boolean {
+  return Boolean(resolveChromiumExecutable());
 }
 
 let sharedBrowserPromise: Promise<Browser> | null = null;
@@ -61,7 +65,7 @@ async function getBrowser(): Promise<Browser> {
 }
 
 /**
- * Checks whether a URL targets a private/internal network host or forbidden scheme.
+ * Checks whether a URL targets a private/internal network host or forbidden scheme (SSRF protection).
  */
 function isUnsafeUrl(rawUrl: string): boolean {
   try {
@@ -187,7 +191,7 @@ function buildPrintableHtmlDocument(rawHtml: string, rawCss: string): string {
     }
   `;
 
-  const combinedStyleBlock = `<style id="pageforge-base-print">${basePrintCss}</style>\n<style id="pageforge-user-css">\n${rawCss || ""}\n</style>`;
+  const combinedStyleBlock = `<style id="auraconvert-base-print">${basePrintCss}</style>\n<style id="auraconvert-user-css">\n${rawCss || ""}\n</style>`;
 
   if (/<html[\s>]/i.test(sanitizedHtml)) {
     if (/<\/head>/i.test(sanitizedHtml)) {
@@ -214,19 +218,40 @@ ${sanitizedHtml}
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+  // Security headers middleware
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+  });
 
   app.use(express.json({ limit: "4mb" }));
 
+  // API Health Check
   app.get("/api/health", (_req: Request, res: Response) => {
     res.json({
       status: "healthy",
-      service: "PageForge PDF Rendering Engine",
+      service: "AuraConvert PDF Rendering Engine",
+      brand: "AuraNix Technologies",
+      version: "1.0.0",
+      renderer: isChromiumAvailable() ? "server-playwright" : "client-fallback",
       timestamp: new Date().toISOString()
     });
   });
 
+  // PDF Conversion Endpoint
   app.post("/api/convert-pdf", async (req: Request, res: Response) => {
+    if (!isChromiumAvailable()) {
+      res.status(503).json({
+        error: "Server-side headless Chromium is not provisioned in this environment. Falling back to client-side engine.",
+        fallback: true
+      });
+      return;
+    }
+
     const { html, css, settings } = (req.body ?? {}) as {
       html?: unknown;
       css?: unknown;
@@ -349,7 +374,7 @@ async function startServer() {
     } catch (err) {
       console.error("PDF generation error:", err);
       res.status(500).json({
-        error: "Unable to render PDF from the provided HTML and CSS. Please verify external asset URLs and syntax."
+        error: "Unable to render PDF from the provided HTML and CSS on the server. Falling back to client-side engine."
       });
     } finally {
       if (context) {
@@ -366,15 +391,40 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: "1d",
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html")) {
+          res.setHeader("Cache-Control", "no-cache");
+        } else if (filePath.includes("/assets/")) {
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      }
+    }));
     app.get("*", (_req: Request, res: Response) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`PageForge PDF server running on http://localhost:${PORT}`);
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`AuraConvert server running on http://0.0.0.0:${PORT}`);
   });
+
+  const shutdown = async () => {
+    server.close();
+    if (sharedBrowserPromise) {
+      try {
+        const browser = await sharedBrowserPromise;
+        await browser.close();
+      } catch {
+        // Ignore shutdown errors
+      }
+    }
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 startServer().catch((err) => {
