@@ -111,7 +111,7 @@ const DEFAULT_HTML = `<!DOCTYPE html>
   <div class="document">
     <header class="doc-header">
       <div>
-        <div class="eyebrow">PageForge PDF · Technical Specification</div>
+        <div class="eyebrow">AuraConvert · Technical Specification</div>
         <h1>Cloud Infrastructure &amp; Print Rendering</h1>
       </div>
       <div class="meta">
@@ -182,7 +182,7 @@ const DEFAULT_HTML = `<!DOCTYPE html>
     </table>
 
     <footer class="doc-footer">
-      <span>Generated with PageForge PDF</span>
+      <span>Generated with AuraConvert</span>
       <span>Vector Print Engine</span>
     </footer>
   </div>
@@ -922,7 +922,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F5F5F7] dark:bg-[#0D0D0F] text-[#1D1D1F] dark:text-[#F5F5F7]">
+    <div className="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col bg-[#F5F5F7] dark:bg-[#0D0D0F] text-[#1D1D1F] dark:text-[#F5F5F7]">
       {/* Application Header */}
       <header className="h-14 px-4 sm:px-6 bg-white/90 dark:bg-[#141416]/90 backdrop-blur-md border-b border-neutral-200/80 dark:border-white/10 sticky top-0 z-30 flex items-center justify-between gap-4">
         {/* Brand Wordmark */}
@@ -931,7 +931,7 @@ export default function App() {
             <FileText size={17} />
           </div>
           <span className="font-bold text-sm sm:text-base tracking-tight text-[#1D1D1F] dark:text-white whitespace-nowrap">
-            PageForge PDF
+            AuraConvert
           </span>
         </div>
 
@@ -1256,14 +1256,14 @@ export default function App() {
       {/* Main Workspace: Split HTML & CSS Editors (Left) + Live Proportional Page Preview (Right) */}
       <main
         ref={workspaceContainerRef}
-        className="flex-1 flex flex-col lg:flex-row min-h-[calc(100vh-5.5rem)] lg:h-[calc(100vh-5.5rem)] lg:overflow-hidden"
+        className="flex-1 min-h-0 flex flex-col lg:flex-row lg:overflow-hidden"
       >
         {/* Left Column: Split HTML and CSS Editors */}
         <section
           ref={editorsContainerRef}
           aria-label="HTML and CSS Code Editors"
           style={{ width: `${workspaceSplitPct}%` }}
-          className="max-lg:!w-full flex flex-col border-b lg:border-b-0 lg:border-r border-neutral-200/80 dark:border-white/10 bg-white dark:bg-[#141416] min-h-[560px] lg:min-h-0 lg:h-full overflow-hidden shrink-0"
+          className="max-lg:!w-full flex flex-col border-b lg:border-b-0 lg:border-r border-neutral-200/80 dark:border-white/10 bg-white dark:bg-[#141416] h-[600px] lg:h-full lg:min-h-0 overflow-hidden shrink-0"
         >
           {/* Split Editors Control Bar */}
           <div className="h-9 px-3 bg-[#F4F4F6] dark:bg-[#18181B] border-b border-neutral-200/80 dark:border-white/[0.08] flex items-center justify-between gap-2 shrink-0">
@@ -1345,7 +1345,7 @@ export default function App() {
           {/* Editors Split Container */}
           <div
             className={cn(
-              "flex-1 flex min-h-0 overflow-hidden",
+              "flex-1 flex h-full min-h-0 overflow-hidden",
               editorLayoutMode === "split-vertical" ? "flex-row" : "flex-col"
             )}
           >
@@ -1355,9 +1355,7 @@ export default function App() {
                 style={
                   editorLayoutMode === "html-only"
                     ? { flex: "1 1 100%" }
-                    : editorLayoutMode === "split-vertical"
-                    ? { width: `${editorSplitPct}%` }
-                    : { height: `${editorSplitPct}%` }
+                    : { flex: `${editorSplitPct} 1 0%` }
                 }
                 className="flex flex-col min-h-[180px] min-w-[180px] overflow-hidden"
               >
@@ -1393,25 +1391,27 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex-1 relative">
-                  <Editor
-                    height="100%"
-                    defaultLanguage="html"
-                    theme={theme === "dark" ? "vs-dark" : "light"}
-                    value={html}
-                    onChange={(val) => setHtml(val || "")}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 13,
-                      lineHeight: 20,
-                      wordWrap: "on",
-                      scrollBeyondLastLine: false,
-                      autoIndent: "full",
-                      formatOnPaste: true,
-                      fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace",
-                      padding: { top: 10, bottom: 10 }
-                    }}
-                  />
+                <div className="flex-1 relative min-h-0">
+                  <div className="absolute inset-0">
+                    <Editor
+                      height="100%"
+                      defaultLanguage="html"
+                      theme={theme === "dark" ? "vs-dark" : "light"}
+                      value={html}
+                      onChange={(val) => setHtml(val || "")}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 13,
+                        lineHeight: 20,
+                        wordWrap: "on",
+                        scrollBeyondLastLine: false,
+                        autoIndent: "full",
+                        formatOnPaste: true,
+                        fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace",
+                        padding: { top: 10, bottom: 10 }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -1439,9 +1439,7 @@ export default function App() {
                 style={
                   editorLayoutMode === "css-only"
                     ? { flex: "1 1 100%" }
-                    : editorLayoutMode === "split-vertical"
-                    ? { width: `${100 - editorSplitPct}%` }
-                    : { height: `${100 - editorSplitPct}%` }
+                    : { flex: `${100 - editorSplitPct} 1 0%` }
                 }
                 className="flex flex-col min-h-[180px] min-w-[180px] overflow-hidden"
               >
@@ -1477,25 +1475,27 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="flex-1 relative">
-                  <Editor
-                    height="100%"
-                    defaultLanguage="css"
-                    theme={theme === "dark" ? "vs-dark" : "light"}
-                    value={css}
-                    onChange={(val) => setCss(val || "")}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 13,
-                      lineHeight: 20,
-                      wordWrap: "on",
-                      scrollBeyondLastLine: false,
-                      autoIndent: "full",
-                      formatOnPaste: true,
-                      fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace",
-                      padding: { top: 10, bottom: 10 }
-                    }}
-                  />
+                <div className="flex-1 relative min-h-0">
+                  <div className="absolute inset-0">
+                    <Editor
+                      height="100%"
+                      defaultLanguage="css"
+                      theme={theme === "dark" ? "vs-dark" : "light"}
+                      value={css}
+                      onChange={(val) => setCss(val || "")}
+                      options={{
+                        minimap: { enabled: false },
+                        fontSize: 13,
+                        lineHeight: 20,
+                        wordWrap: "on",
+                        scrollBeyondLastLine: false,
+                        autoIndent: "full",
+                        formatOnPaste: true,
+                        fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace",
+                        padding: { top: 10, bottom: 10 }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -1562,7 +1562,7 @@ export default function App() {
                 >
                   <iframe
                     ref={iframeRef}
-                    title="PageForge Live Document Preview"
+                    title="AuraConvert Live Document Preview"
                     sandbox="allow-same-origin"
                     srcDoc={debouncedDoc}
                     onLoad={measureIframeHeight}
@@ -1612,8 +1612,8 @@ export default function App() {
 
       {/* Minimal Semantic Footer */}
       <footer className="h-8 px-5 bg-white dark:bg-[#141416] border-t border-neutral-200/80 dark:border-white/10 flex items-center justify-between text-[11px] text-neutral-500 dark:text-neutral-400 shrink-0">
-        <span>&copy; {new Date().getFullYear()} PageForge PDF</span>
-        <span>Online HTML &amp; CSS to PDF Converter</span>
+        <span>&copy; {new Date().getFullYear()} AuraConvert · AuraNix Technologies</span>
+        <span>Convert HTML to PDF. Fast, Beautiful, Effortless.</span>
       </footer>
 
       {/* Professional PDF Ready Popup Modal */}
