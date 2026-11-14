@@ -13,21 +13,42 @@
     font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
-  * {
+  *, *::before, *::after {
+    box-sizing: border-box;
     @apply border-neutral-200/80 dark:border-white/10;
+  }
+
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    margin: 0;
+    padding: 0;
   }
 
   body {
     @apply bg-[#F5F5F7] text-[#1D1D1F] dark:bg-[#0D0D0F] dark:text-[#F5F5F7] selection:bg-[#0066CC]/20 dark:selection:bg-[#2997FF]/30;
     transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1), color 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    -webkit-tap-highlight-color: transparent;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  button, select, input, textarea {
+    touch-action: manipulation;
+    font-family: inherit;
   }
 }
 
-/* Apple-style immediate pointer-down response */
+/* Touch & Press Micro-interactions */
 .apple-press {
   transition: transform 100ms cubic-bezier(0.16, 1, 0.3, 1), opacity 100ms ease-out, background-color 150ms ease;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .apple-press:active:not(:disabled) {
   transform: scale(0.97);
@@ -35,14 +56,28 @@
 
 /* Frosted Translucent Material */
 .apple-glass {
-  background: rgba(255, 255, 255, 0.76);
+  background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 .dark .apple-glass {
-  background: rgba(22, 22, 25, 0.76);
+  background: rgba(20, 20, 23, 0.82);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Safe Area Inset Helpers */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-area-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.safe-area-right {
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Accessibility: Reduced Motion, Reduced Transparency, High Contrast */
@@ -70,7 +105,7 @@
     background: #ffffff !important;
   }
   .dark .apple-glass {
-    background: #161619 !important;
+    background: #141416 !important;
   }
 }
 

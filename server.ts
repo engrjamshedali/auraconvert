@@ -3,9 +3,14 @@ import fs from "fs";
 import path from "path";
 import { chromium, Browser } from "playwright-core";
 import { createServer as createViteServer } from "vite";
+import { formatFinalPdfFilename } from "./src/lib/filename";
 
 const CHROMIUM_CANDIDATE_PATHS = [
   process.env.CHROMIUM_PATH,
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
   "/ms-playwright/chrome-headless-shell-linux64/chrome-headless-shell",
   "/usr/bin/chromium",
   "/usr/bin/chromium-browser",
@@ -252,10 +257,11 @@ async function startServer() {
       return;
     }
 
-    const { html, css, settings } = (req.body ?? {}) as {
+    const { html, css, settings, filename } = (req.body ?? {}) as {
       html?: unknown;
       css?: unknown;
       settings?: PageSettingsPayload;
+      filename?: unknown;
     };
 
     if (typeof html !== "string" || !html.trim()) {
@@ -346,6 +352,26 @@ async function startServer() {
         });
       }
 
+      try {
+        await page.evaluate(async () => {
+          if (document.fonts && document.fonts.ready) {
+            await document.fonts.ready;
+          }
+        });
+      } catch {
+        // Ignore font eval error
+      }
+
+      const isRenderable = await page.evaluate(() => {
+        return Boolean(document.body && (document.body.scrollHeight > 0 || document.body.innerText.trim().length > 0));
+      });
+      if (!isRenderable) {
+        res.status(400).json({
+          error: "Unable to generate PDF because the document content is empty."
+        });
+        return;
+      }
+
       await page.emulateMedia({ media: "print" });
 
       const pdfBuffer = await page.pdf({
@@ -358,14 +384,15 @@ async function startServer() {
         margin: marginConfig
       });
 
-      if (!pdfBuffer || pdfBuffer.byteLength < 100) {
+      if (!pdfBuffer || pdfBuffer.byteLength < 1000) {
         throw new Error("Generated PDF buffer was empty.");
       }
 
       const pageCount = extractPdfPageCount(pdfBuffer);
+      const safeFilename = formatFinalPdfFilename(typeof filename === "string" ? filename : null);
 
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", 'attachment; filename="document.pdf"');
+      res.setHeader("Content-Disposition", `attachment; filename="${safeFilename}"`);
       res.setHeader("Content-Length", String(pdfBuffer.byteLength));
       res.setHeader("X-PDF-Page-Count", String(pageCount));
       res.setHeader("Access-Control-Expose-Headers", "X-PDF-Page-Count");
@@ -378,7 +405,7 @@ async function startServer() {
       });
     } finally {
       if (context) {
-        await context.close().catch(() => {});
+        await context.close().catch(() => { });
       }
     }
   });
